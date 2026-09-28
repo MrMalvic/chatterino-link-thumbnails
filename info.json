@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Chatterino/chatterino2/master/docs/plugin-info.schema.json",
+  "name": "Link Thumbnails",
+  "description": "Replaces links in chat with their thumbnail image (via Chatterino's link resolver). Click the image to open the link.",
+  "authors": ["mrmalvic"],
+  "homepage": "",
+  "tags": ["images", "links", "thumbnails"],
+  "version": "0.1.0",
+  "license": "MIT",
+  "permissions": [{ "type": "Network" }]
+}
