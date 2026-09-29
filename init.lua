@@ -1,7 +1,8 @@
 local json = require("chatterino.json")
 
 local RESOLVER = "https://braize.pajlada.com/chatterino/link_resolver/"
-local SCALE = 0.5
+local MAX_HEIGHT = 120 
+local SCALE = MAX_HEIGHT / 300
 
 local HOSTS = {
     "kappa.lol",
@@ -78,7 +79,7 @@ local function rebuild(msg, thumbs)
         if thumbs[i] then
             elements[i] = {
                 type = "image",
-                image = c2.Image.from_url(thumbs[i], SCALE),
+                image = c2.Image.from_url(thumbs[i] .. "#lt", SCALE),
                 flags = c2.MessageElementFlag.AlwaysShow,
                 link = src[i].link,
             }
