@@ -3,6 +3,7 @@ local json = require("chatterino.json")
 local RESOLVER = "https://braize.pajlada.com/chatterino/link_resolver/"
 local MAX_HEIGHT = 120 
 local SCALE = MAX_HEIGHT / 300
+local MAX_PER_MESSAGE = 3 -- distinct links; the rest stay as plain links
 
 local HOSTS = {
     "kappa.lol",
@@ -75,16 +76,22 @@ end
 local function rebuild(msg, thumbs)
     local elements = {}
     local src = msg:elements()
+    local first = true
     for i = 1, #src do
         if thumbs[i] then
-            elements[i] = {
+            -- one linebreak before the first image, the rest share its row
+            if first then
+                elements[#elements + 1] = { type = "linebreak", flags = c2.MessageElementFlag.AlwaysShow }
+                first = false
+            end
+            elements[#elements + 1] = {
                 type = "image",
                 image = c2.Image.from_url(thumbs[i] .. "#lt", SCALE),
                 flags = c2.MessageElementFlag.AlwaysShow,
                 link = src[i].link,
             }
         else
-            elements[i] = src[i]
+            elements[#elements + 1] = src[i]
         end
     end
     return c2.Message.new({
@@ -105,11 +112,13 @@ local function rebuild(msg, thumbs)
 end
 
 local function on_message(channel, msg)
-    local links, pending = {}, 0
+    local links, seen, pending = {}, {}, 0
     local src = msg:elements()
     for i = 1, #src do
-        if src[i].type == "link" and allowed(src[i].link.value) then
-            links[i] = src[i].link.value
+        local url = src[i].type == "link" and src[i].link.value
+        if url and pending < MAX_PER_MESSAGE and not seen[url] and allowed(url) then
+            seen[url] = true
+            links[i] = url
             pending = pending + 1
         end
     end
