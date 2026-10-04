@@ -3,6 +3,7 @@ local json = require("chatterino.json")
 local RESOLVER = "https://braize.pajlada.com/chatterino/link_resolver/"
 local MAX_HEIGHT = 120 
 local SCALE = MAX_HEIGHT / 300
+local RETRIES = 3
 local MAX_PER_MESSAGE = 3 -- distinct links; the rest stay as plain links
 
 local HOSTS = {
@@ -56,21 +57,39 @@ local function encode(s)
     end))
 end
 
-local function resolve(url, cb)
-    if cache[url] ~= nil then
-        return cb(cache[url])
-    end
-    local req = c2.HTTPRequest.create(c2.HTTPMethod.Get, RESOLVER .. encode(url))
+local function fetch(url, cb, attempt)
+    attempt = attempt or 1
+    local req = c2.HTTPRequest.create(c2.HTTPMethod.Get, url)
     req:set_timeout(15000)
-    req:on_success(function(res)
-        local ok, data = pcall(json.parse, res:data())
-        cache[url] = ok and type(data) == "table" and data.status == 200 and data.thumbnail or false
-        cb(cache[url])
-    end)
+    req:on_success(cb)
     req:on_error(function()
-        cb(false)
+        if attempt >= RETRIES then
+            return cb(nil)
+        end
+        c2.later(function()
+            fetch(url, cb, attempt + 1)
+        end, math.floor(1000 * 3 ^ (attempt - 1)))
     end)
     req:execute()
+end
+
+-- Only hand back thumbnails that actually downloaded: a thumbnail that fails to
+-- load renders as a zero-size image, hiding the link with nothing to click.
+local function resolve(url, cb)
+    if cache[url] then
+        return cb(cache[url])
+    end
+    fetch(RESOLVER .. encode(url), function(res)
+        local ok, data = pcall(json.parse, res and res:data() or "")
+        local thumb = ok and type(data) == "table" and data.status == 200 and data.thumbnail
+        if not thumb then
+            return cb(false)
+        end
+        fetch(thumb, function(img)
+            cache[url] = img and #img:data() > 0 and thumb or nil
+            cb(cache[url] or false)
+        end)
+    end)
 end
 
 local function rebuild(msg, thumbs)
